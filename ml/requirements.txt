@@ -1,0 +1,12 @@
+accelerate==1.10.1
+certifi==2025.8.3
+datasets==4.0.0
+fastapi==0.116.1
+numpy==2.2.6
+pydantic==2.11.7
+pymongo==4.10.1
+pypdf==5.9.0
+python-dotenv==1.1.1
+sentence-transformers==5.2.3
+torch==2.8.0
+uvicorn==0.35.0

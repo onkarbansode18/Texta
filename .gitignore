@@ -1,0 +1,136 @@
+# =========================
+# Secrets / Environment
+# =========================
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/client/.env
+frontend/client/.env.local
+
+# =========================
+# Node.js / npm / yarn
+# =========================
+node_modules/
+backend/node_modules/
+frontend/client/node_modules/
+.npm/
+.yarn/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend build output
+frontend/client/build/
+frontend/client/dist/
+
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Packaging
+*.egg-info/
+build/
+dist/
+pip-wheel-metadata/
+
+# =========================
+# Virtual Environments
+# =========================
+.venv/
+venv/
+env/
+ENV/
+ml/.venv/
+
+# =========================
+# IDE / OS files
+# =========================
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# =========================
+# Logs / Temp / Cache
+# =========================
+*.log
+logs/
+tmp/
+temp/
+.cache/
+.tmp/
+*.bak
+
+# =========================
+# Backend Runtime Files
+# =========================
+backend/uploads/
+!backend/uploads/.gitkeep
+backend/data/documents-index.json
+backend/data/debug-docs.json
+
+# =========================
+# DATASETS
+# =========================
+Dataset/
+datasets/
+data/raw/
+data/processed/
+*.csv
+*.jsonl
+
+# =========================
+# ML Models / Generated Artifacts
+# =========================
+ml/models/
+ml/checkpoints/
+ml/.cache/
+ml/cache/
+
+trained_model/
+trained_model_unpacked/
+trained_model.zip
+processed_data/
+
+# Binary model/data files
+*.npy
+*.npz
+*.pkl
+*.pickle
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# =========================
+# Databases
+# =========================
+*.sqlite3
+*.db
+
+# =========================
+# Misc
+# =========================
+*.csv.tmp
