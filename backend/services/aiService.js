@@ -945,6 +945,12 @@ class AIService {
     return RECORD_QUERY_HINTS.some((hint) => containsHint(lower, hint));
   }
 
+  isAllDetailsQuery(query) {
+    const lower = normalizeForMatch(query);
+    return /\b(all|complete|full|entire|whole)\b/.test(lower) &&
+      /\b(detail|details|info|information|record|data)\b/.test(lower);
+  }
+
   getRequestedPersonField(query) {
     const normalized = normalizeQueryForRetrieval(query);
     return PERSON_FIELD_LOOKUPS.find((field) => field.hints.some((hint) => containsHint(normalized, hint))) || null;
@@ -1519,15 +1525,32 @@ class AIService {
     return null;
   }
 
-  buildGdsTableLookupAnswer(lookup) {
+  buildGdsTableLookupAnswer(lookup, query = '') {
     const { field, row } = lookup;
     const identifier = row.matchedBy === 'registrationNo'
       ? `registration number ${row.registrationNo}`
       : row.postId
       ? `post ID ${row.postId}`
       : `registration number ${row.registrationNo}`;
-    const value = row[field.key];
 
+    // If user wants all/complete details, return the full record
+    if (this.isAllDetailsQuery(query)) {
+      const parts = [];
+      if (row.postId)         parts.push(`Post ID: ${row.postId}`);
+      if (row.serialNo)       parts.push(`Serial No: ${row.serialNo}`);
+      if (row.division)       parts.push(`Division: ${row.division}`);
+      if (row.office)         parts.push(`Office: ${row.office}`);
+      if (row.postName)       parts.push(`Post Name: ${row.postName}`);
+      if (row.community)      parts.push(`Community: ${row.community}`);
+      if (row.registrationNo) parts.push(`Registration No: ${row.registrationNo}`);
+      if (row.marks)          parts.push(`Marks: ${row.marks}`);
+      if (parts.length === 0) {
+        return 'I could not find the complete details in the uploaded documents.';
+      }
+      return `Here are all the details for ${identifier}:\n${parts.join('\n')}`;
+    }
+
+    const value = row[field.key];
     if (!value) {
       return 'I could not find this exact field in the uploaded documents.';
     }
@@ -1772,11 +1795,16 @@ class AIService {
         `[${chunk.chunkId}] [${chunk.originalName} - Page ${chunk.page}, Para ${chunk.paragraph}] ${chunk.text}`
       )
       .join('\n\n');
+    const wantsAllDetails = this.isAllDetailsQuery(query);
     const prompt = [
       'You answer exact field-lookup questions from document table rows.',
       'Use ONLY the provided matched row/context text.',
-      'Return one concise answer, not a list of matches.',
-      'If the requested value is present, answer in this style: "The <field> for <identifier> is <value>."',
+      wantsAllDetails
+        ? 'The user wants ALL available details. List EVERY field present in the matched row (Serial No, Division, Office, Post ID, Post Name, Community, Registration No, Marks, etc.). Do NOT omit any field.'
+        : 'Return one concise answer, not a list of matches.',
+      wantsAllDetails
+        ? 'Format the answer as: "Here are all the details for <identifier>:\\n<Field>: <value>\\n<Field>: <value>..."'
+        : 'If the requested value is present, answer in this style: "The <field> for <identifier> is <value>."',
       'If the requested value cannot be identified from the context, answer exactly: "I could not find this in the uploaded documents."',
       'Return STRICT JSON only with this schema:',
       '{"answer":"string","citations":["chunkId1"]}',
@@ -2182,7 +2210,7 @@ class AIService {
         const gdsLookup = this.findGdsTableLookup(query, orderedDocuments);
         if (gdsLookup) {
           return {
-            answer: this.buildGdsTableLookupAnswer(gdsLookup),
+            answer: this.buildGdsTableLookupAnswer(gdsLookup, query),
             sources: [gdsLookup.source],
             retrievedCount: 1,
             matchStrategy: 'gds_table_lookup',
