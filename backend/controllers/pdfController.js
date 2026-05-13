@@ -133,3 +133,18 @@ exports.deleteDocument = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+exports.deleteFolder = async (req, res) => {
+  try {
+    const folderPath = decodeURIComponent(req.params.folderPath || '');
+    const deletedCount = await pdfService.deleteFolder(folderPath);
+
+    if (deletedCount === 0) {
+      return res.status(404).json({ error: 'No documents found in that folder' });
+    }
+
+    res.json({ success: true, deletedCount, message: `Deleted ${deletedCount} document(s) from folder.` });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};

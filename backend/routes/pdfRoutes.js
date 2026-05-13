@@ -24,6 +24,7 @@ const upload = multer({
 router.post('/upload', upload.array('pdf', 20), pdfController.uploadPDF);
 router.get('/documents', pdfController.getAllDocuments);
 router.delete('/documents/:fileName', pdfController.deleteDocument);
+router.delete('/folders/:folderPath', pdfController.deleteFolder);
 
 router.use((err, req, res, next) => {
   if (err instanceof multer.MulterError && err.code === 'LIMIT_FILE_SIZE') {

@@ -38,6 +38,7 @@ export const uploadPDF = async (file) => {
   return response;
 };
 
+
 // Get all documents
 export const getDocuments = async () => {
   const response = await axios.get(`${API_URL}/pdf/documents`);
@@ -47,6 +48,12 @@ export const getDocuments = async () => {
 // Delete document
 export const deleteDocument = async (fileName) => {
   const response = await axios.delete(`${API_URL}/pdf/documents/${encodeURIComponent(fileName)}`);
+  return response.data;
+};
+
+// Delete entire folder (all docs under that folderPath)
+export const deleteFolder = async (folderPath) => {
+  const response = await axios.delete(`${API_URL}/pdf/folders/${encodeURIComponent(folderPath)}`);
   return response.data;
 };
 

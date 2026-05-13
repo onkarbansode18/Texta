@@ -320,6 +320,24 @@ class PDFService {
 
     return true;
   }
+
+  async deleteFolder(folderPath) {
+    // Find all docs whose folderPath matches
+    const docs = await getDocumentsCollection()
+      .find({ folderPath }, { projection: { _id: 0, fileName: 1 } })
+      .toArray();
+
+    if (!docs || docs.length === 0) {
+      return 0;
+    }
+
+    for (const doc of docs) {
+      await getDocumentsCollection().deleteOne({ fileName: doc.fileName });
+      await deletePdfFile(doc.fileName);
+    }
+
+    return docs.length;
+  }
 }
 
 // Export an instance of the class
