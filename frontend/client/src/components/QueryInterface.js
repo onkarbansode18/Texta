@@ -124,10 +124,10 @@ const QueryInterface = ({ onResult, selectedFileNames = [], selectedCount = 0 })
           </div>
           <h2 style={{ margin: 0 }}>Ask a Question</h2>
         </div>
-        <p style={{ margin: '4px 0 0 46px', fontSize: 13, color: 'var(--ink-3)' }}>
+        <p className="query-hint">
           Search only inside the selected files. Click + to add another question. Tip: Ctrl+Enter to submit.
         </p>
-        <p style={{ margin: '8px 0 0 46px', fontSize: 12, color: selectedCount > 0 ? 'var(--ink-3)' : '#b42318' }}>
+        <p className="query-selection-info" style={{ color: selectedCount > 0 ? 'var(--ink-3)' : '#b42318' }}>
           {selectedCount > 0
             ? `${selectedCount} file${selectedCount === 1 ? '' : 's'} selected for search.`
             : 'No files selected. Choose at least one file from the repository.'}

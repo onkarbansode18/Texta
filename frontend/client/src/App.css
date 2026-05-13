@@ -1125,26 +1125,131 @@ body {
 
 /* ─── RESPONSIVE ─────────────────────────────────────────── */
 
-@media (max-width: 900px) {
-  .section-grid { grid-template-columns: 1fr; }
-  .query-layout { grid-template-columns: 1fr; }
-  .hero { grid-template-columns: 1fr; }
-  .hero-stats { flex-direction: row; justify-content: center; }
+/* ── Query hint helpers (used in QueryInterface.js) ── */
+.query-hint {
+  margin: 4px 0 0 46px;
+  font-size: 13px;
+  color: var(--ink-3);
 }
 
-@media (max-width: 680px) {
-  .app-shell { padding: 20px 16px 48px; }
-  .hero { padding: 24px 22px; }
-  .panel { padding: 20px; }
-  .doc-card { flex-wrap: wrap; }
-  .doc-toolbar { flex-direction: column; align-items: flex-start; }
-  .sources-grid { grid-template-columns: 1fr; }
-  .result-actions { width: 100%; justify-content: space-between; }
-  .pdf-preview-backdrop { padding: 12px; }
-  .pdf-preview-head { flex-direction: column; }
-  .pdf-preview-actions { width: 100%; justify-content: space-between; }
-  .pdf-preview-frame-wrap,
-  .pdf-preview-frame { min-height: 58vh; }
-  .pdf-render-shell { min-height: 58vh; padding: 12px; }
+.query-selection-info {
+  margin: 8px 0 0 46px;
+  font-size: 12px;
 }
+
+/* ── Tablet / Small Laptop  ≤ 900px ── */
+@media (max-width: 900px) {
+  .section-grid { grid-template-columns: 1fr; }
+  .query-layout  { grid-template-columns: 1fr; }
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 32px 36px;
+  }
+  .hero-stats {
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    min-width: unset;
+  }
+  .hero-stat-divider { width: 1px; height: 40px; }
+}
+
+/* ── Large Phone  ≤ 680px ── */
+@media (max-width: 680px) {
+  .app-shell  { padding: 16px 14px 48px; }
+  .hero       { padding: 22px 20px; margin-bottom: 16px; }
+  .panel      { padding: 18px 16px; }
+
+  /* doc cards */
+  .doc-card       { flex-wrap: wrap; gap: 10px; }
+  .doc-card .btn-danger { margin-left: auto; }
+  .doc-toolbar    { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .doc-toolbar .btn-danger { width: 100%; }
+
+  /* query inline hints lose big left margin */
+  .query-hint            { margin-left: 0; }
+  .query-selection-info  { margin-left: 0; }
+
+  /* results */
+  .sources-grid     { grid-template-columns: 1fr; }
+  .result-actions   { flex-wrap: wrap; width: 100%; gap: 8px; }
+  .result-actions .btn { flex: 1; min-width: 0; }
+
+  /* PDF modal */
+  .pdf-preview-backdrop  { padding: 8px; }
+  .pdf-preview-modal     { padding: 14px; gap: 10px; }
+  .pdf-preview-head      { flex-direction: column; gap: 10px; }
+  .pdf-preview-actions   { width: 100%; justify-content: flex-end; gap: 8px; }
+  .pdf-preview-frame-wrap,
+  .pdf-preview-frame     { min-height: 55vh; }
+  .pdf-render-shell      { min-height: 55vh; padding: 10px; }
+}
+
+/* ── Small Phone  ≤ 480px ── */
+@media (max-width: 480px) {
+  .app-shell  { padding: 12px 12px 40px; }
+  .hero       { padding: 18px 14px; margin-bottom: 12px; }
+  .hero h1    { font-size: 26px; }
+  .hero-label { font-size: 10px; padding: 4px 10px; margin-bottom: 12px; }
+  .hero-subtitle { font-size: 13.5px; }
+
+  .hero-stats     { padding: 14px 16px; gap: 6px; }
+  .hero-stat-num  { font-size: 28px; }
+  .hero-stat-divider { width: 1px; height: 34px; }
+
+  .panel       { padding: 14px 13px; }
+  .panel-head h2, .panel-head h3 { font-size: 16px; }
+  .panel-head-inline { flex-wrap: wrap; }
+
+  .section-grid { gap: 12px; margin-bottom: 12px; }
+  .query-panel  { margin-bottom: 12px; }
+  .result-panel { margin-bottom: 12px; }
+
+  /* doc list */
+  .doc-list  { max-height: 260px; }
+  .doc-card  { padding: 10px 12px; }
+  .doc-icon  { width: 30px; height: 30px; font-size: 13px; }
+  .doc-title { font-size: 13px; }
+  .doc-folder-group { padding: 10px; }
+  .doc-folder-head  { gap: 6px; margin-bottom: 8px; padding-bottom: 8px; }
+
+  /* query inputs */
+  .question-input  { padding: 9px 11px; font-size: 13px; }
+  .query-textarea  { padding: 11px 13px; font-size: 13px; }
+  .btn             { padding: 10px 14px; font-size: 13px; }
+  .btn-question-add,
+  .btn-question-remove { min-width: 36px; }
+
+  /* voice pane */
+  .voice-pane  { padding: 14px; }
+  .upload-zone { padding: 16px 12px; gap: 8px; }
+
+  /* sources */
+  .sources-grid { gap: 8px; }
+  .source-card  { padding: 11px; }
+
+  /* PDF modal */
+  .pdf-preview-modal  { padding: 10px; }
+  .pdf-preview-title  { font-size: 16px; }
+  .pdf-preview-frame-wrap,
+  .pdf-preview-frame  { min-height: 50vh; }
+  .pdf-render-shell   { min-height: 50vh; padding: 8px; }
+
+  /* misc */
+  .answer-block     { padding: 14px; }
+  .batch-result-card { padding: 12px; }
+  .empty-panel      { padding: 32px 14px; }
+  .loading-panel    { padding: 32px 14px; }
+  .app-footer       { font-size: 11px; padding: 14px 4px; }
+}
+
+/* ── Very Small Phone  ≤ 380px ── */
+@media (max-width: 380px) {
+  .hero-stats        { flex-direction: column; align-items: center; }
+  .hero-stat-divider { width: 100%; height: 1px; }
+  .result-actions .btn { font-size: 12px; padding: 8px 10px; }
+  .doc-card          { padding: 9px 10px; }
+  .panel             { padding: 12px 11px; }
+}
+
 
