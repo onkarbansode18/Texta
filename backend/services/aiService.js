@@ -951,6 +951,85 @@ class AIService {
       /\b(detail|details|info|information|record|data)\b/.test(lower);
   }
 
+  isReverseLookupQuery(query) {
+    const normalized = normalizeQueryForRetrieval(query);
+    const wantsName = /\bname\b/i.test(normalized);
+    const hasNumericId = extractNumericTokens(normalized, 7).length > 0;
+    const hasFieldHint = RECORD_QUERY_HINTS.some((hint) => containsHint(normalized, hint));
+    return wantsName && hasNumericId && hasFieldHint;
+  }
+
+  findReverseLookupMatch(query, documents) {
+    const numericTokens = extractNumericTokens(query, 7);
+    if (numericTokens.length === 0) {
+      return null;
+    }
+
+    const targetNumber = numericTokens[0];
+
+    for (const doc of documents || []) {
+      for (const chunk of doc.structuredData || []) {
+        const chunkText = String(chunk.text || '');
+        if (!includesLooseNumericToken(chunkText, targetNumber)) {
+          continue;
+        }
+
+        const namePattern = /\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,3})\b/g;
+        const compactText = compactSpaces(chunkText);
+        const numberIndex = compactText.indexOf(targetNumber);
+        if (numberIndex < 0) {
+          continue;
+        }
+
+        // Find ALL proper names in the chunk and pick the one closest BEFORE the number
+        const stopwords = new Set(['class', 'div', 'roll', 'name', 'student', 'contact', 'email', 'mobile',
+          'page', 'date', 'the', 'this', 'from', 'subject', 'table', 'total', 'guide', 'head',
+          'department', 'coordinator', 'prof', 'mrs', 'mr', 'dr', 'no', 'id', 'seda', 'vit']);
+        const allNames = [];
+        let nameMatch;
+        while ((nameMatch = namePattern.exec(compactText)) !== null) {
+          const candidate = nameMatch[1].trim();
+          const firstWord = candidate.split(' ')[0].toLowerCase();
+          if (!stopwords.has(firstWord) && candidate.length > 2) {
+            allNames.push({ name: candidate, index: nameMatch.index });
+          }
+        }
+
+        // Pick the name closest to the number in EITHER direction (same table row)
+        // For PRN/GR numbers: name comes AFTER (e.g. "1252010021 Onkar Bansode")
+        // For mobile numbers: name comes BEFORE (e.g. "Onkar Bansode 9359206011")
+        const numberEnd = numberIndex + targetNumber.length;
+
+        let closestName = null;
+        let closestDistance = Infinity;
+
+        for (const n of allNames) {
+          const nameEnd = n.index + n.name.length;
+          // Distance: how far is the name from the number?
+          const dist = n.index >= numberEnd
+            ? (n.index - numberEnd)       // name is AFTER number
+            : (numberIndex - nameEnd);    // name is BEFORE number
+          if (dist >= 0 && dist < closestDistance) {
+            closestDistance = dist;
+            closestName = n;
+          }
+        }
+
+        if (closestName) {
+          const personName = closestName.name;
+          return {
+            answer: `The name of the student/person with ${targetNumber} is ${personName}.`,
+            chunk,
+            fileName: doc.fileName,
+            originalName: doc.originalName || doc.fileName
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
   getRequestedPersonField(query) {
     const normalized = normalizeQueryForRetrieval(query);
     return PERSON_FIELD_LOOKUPS.find((field) => field.hints.some((hint) => containsHint(normalized, hint))) || null;
@@ -2245,14 +2324,32 @@ class AIService {
           };
         }
 
-        if (this.isExplicitPersonFieldQuery(query)) {
-          return {
-            answer: 'I could not find this exact person field reliably in the uploaded documents.',
-            sources: [],
-            retrievedCount: 0,
-            matchStrategy: 'person_field_not_found'
-          };
+        if (this.isReverseLookupQuery(query)) {
+          const reverseMatch = this.findReverseLookupMatch(query, orderedDocuments);
+          if (reverseMatch) {
+            const sourceChunk = reverseMatch.chunk;
+            return {
+              answer: reverseMatch.answer,
+              sources: [{
+                chunkId: sourceChunk.chunkId,
+                fileName: reverseMatch.fileName,
+                originalName: reverseMatch.originalName,
+                page: sourceChunk.page,
+                paragraph: sourceChunk.paragraph,
+                startLine: sourceChunk.startLine,
+                endLine: sourceChunk.endLine,
+                text: sourceChunk.text,
+                score: 5,
+                matchType: 'reverse_lookup'
+              }],
+              retrievedCount: 1,
+              matchStrategy: 'reverse_lookup',
+              matchedDocument: reverseMatch.originalName || reverseMatch.fileName
+            };
+          }
         }
+
+        // Fall through to record_lookup / semantic search instead of dead-ending
 
         const recordMatches = this.findExactRecordMatches(query, orderedDocuments);
         if (recordMatches.length > 0) {
