@@ -2,20 +2,45 @@ const aiService = require('../services/aiService');
 const pdfService = require('../services/pdfService');
 const PDFDocument = require('pdfkit');
 
+/* ─── Premium PDF Theme ─────────────────────────────────────────────── */
 const PDF_THEME = {
-  title: '#0f172a',
-  text: '#1f2937',
-  muted: '#64748b',
-  primary: '#2563eb',
-  border: '#cbd5e1',
-  panelBg: '#f8fafc',
-  metaBg: '#eef2ff'
+  // Header / branding
+  headerGradientStart: '#1e293b',
+  headerGradientEnd:   '#0f172a',
+  headerAccent:        '#6366f1',
+  headerText:          '#ffffff',
+  headerSubText:       '#94a3b8',
+
+  // Body
+  title:     '#0f172a',
+  text:      '#1e293b',
+  muted:     '#64748b',
+  primary:   '#6366f1',
+  secondary: '#8b5cf6',
+  success:   '#059669',
+  border:    '#e2e8f0',
+
+  // Panels
+  questionBg:    '#eef2ff',
+  questionBorder:'#c7d2fe',
+  answerBg:      '#f0fdf4',
+  answerBorder:  '#a7f3d0',
+  sourceBg:      '#fafafa',
+  sourceBorder:  '#e2e8f0',
+  metaBg:        '#f8fafc',
+  metaBorder:    '#e2e8f0',
+
+  // Footer
+  footerLine: '#e2e8f0',
+  footerText: '#94a3b8'
 };
 const MAX_EXPORT_SOURCES = 3;
-const MAX_ANSWER_CHARS = 1200;
-const MAX_SOURCE_EXCERPT_CHARS = 180;
+const MAX_ANSWER_CHARS = 1800;
+const MAX_SOURCE_EXCERPT_CHARS = 280;
 const MAX_BATCH_QUERIES = 20;
+const PAGE_MARGIN = 48;
 
+/* ─── Helper utilities ──────────────────────────────────────────────── */
 function compactText(value, maxChars) {
   const normalized = String(value || '-').replace(/\s+/g, ' ').trim();
   if (!maxChars || normalized.length <= maxChars) {
@@ -30,26 +55,6 @@ function sanitizeFilename(value) {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase();
-}
-
-function writeSectionTitle(doc, title) {
-  doc.moveDown(0.8);
-  const left = doc.page.margins.left;
-  const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const y = doc.y;
-
-  doc.save();
-  doc.rect(left, y, 4, 17).fill(PDF_THEME.primary);
-  doc.restore();
-
-  doc.font('Helvetica-Bold').fontSize(13).fillColor(PDF_THEME.title).text(title, left + 10, y);
-  doc.moveDown(0.5);
-}
-
-function ensurePageSpace(doc, minSpace = 80) {
-  if (doc.y > doc.page.height - doc.page.margins.bottom - minSpace) {
-    doc.addPage();
-  }
 }
 
 function normalizeQueries(input) {
@@ -75,76 +80,271 @@ function normalizeSelectedFiles(input) {
   ));
 }
 
+/* ─── PDF Drawing Helpers ───────────────────────────────────────────── */
+function getUsableWidth(doc) {
+  return doc.page.width - doc.page.margins.left - doc.page.margins.right;
+}
+
+function getRemainingSpace(doc) {
+  return doc.page.height - doc.page.margins.bottom - doc.y;
+}
+
+function ensurePageSpace(doc, minSpace = 60) {
+  if (getRemainingSpace(doc) < minSpace) {
+    doc.addPage();
+  }
+}
+
+/**
+ * Draw a premium header banner at the top of the first page.
+ */
+function drawHeaderBanner(doc, query, inputMethod) {
+  const left = 0;
+  const width = doc.page.width;
+  const bannerHeight = 105;
+
+  // Dark gradient background
+  doc.save();
+  doc.rect(left, 0, width, bannerHeight).fill(PDF_THEME.headerGradientStart);
+
+  // Accent stripe at bottom of banner
+  doc.rect(left, bannerHeight - 3, width, 3).fill(PDF_THEME.headerAccent);
+  doc.restore();
+
+  // Title
+  doc.font('Helvetica-Bold').fontSize(20).fillColor(PDF_THEME.headerText)
+    .text('Query Result Report', PAGE_MARGIN, 24, { width: width - PAGE_MARGIN * 2 });
+
+  // Subtitle
+  doc.font('Helvetica').fontSize(10).fillColor(PDF_THEME.headerSubText)
+    .text('AI-PDF Retrieval System  •  Intelligent Document Analysis', PAGE_MARGIN, 50, { width: width - PAGE_MARGIN * 2 });
+
+  // Metadata line
+  const dateStr = new Date().toLocaleString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+  doc.font('Helvetica').fontSize(9).fillColor(PDF_THEME.headerSubText)
+    .text(`Generated: ${dateStr}   |   Input: ${inputMethod.toUpperCase()}`, PAGE_MARGIN, 72, { width: width - PAGE_MARGIN * 2 });
+
+  doc.y = bannerHeight + 18;
+}
+
+/**
+ * Draw a labeled info card with icon.
+ */
 function drawInfoCard(doc, rows) {
   const left = doc.page.margins.left;
-  const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const top = doc.y;
-  const cardHeight = 56;
+  const width = getUsableWidth(doc);
+  const rowHeight = 18;
+  const paddingY = 12;
+  const cardHeight = paddingY * 2 + rows.length * rowHeight;
 
   ensurePageSpace(doc, cardHeight + 10);
 
+  const top = doc.y;
+
   doc.save();
-  doc.roundedRect(left, top, width, cardHeight, 8).fillAndStroke(PDF_THEME.metaBg, PDF_THEME.border);
+  doc.roundedRect(left, top, width, cardHeight, 6)
+    .lineWidth(0.75).fillAndStroke(PDF_THEME.metaBg, PDF_THEME.metaBorder);
   doc.restore();
 
-  let y = top + 10;
+  // Accent left bar
+  doc.save();
+  doc.rect(left, top, 4, cardHeight).fill(PDF_THEME.primary);
+  doc.restore();
+
+  let y = top + paddingY;
   rows.forEach((row) => {
-    doc.font('Helvetica').fontSize(10).fillColor(PDF_THEME.muted).text(row, left + 14, y, { width: width - 28 });
-    y += 16;
+    doc.font('Helvetica').fontSize(9.5).fillColor(PDF_THEME.muted)
+      .text(row, left + 16, y, { width: width - 28 });
+    y += rowHeight;
   });
 
-  doc.y = top + cardHeight + 6;
+  doc.y = top + cardHeight + 12;
 }
 
-function drawTextPanel(doc, title, text) {
-  writeSectionTitle(doc, title);
+/**
+ * Draw a section title with an accent marker.
+ */
+function writeSectionTitle(doc, title, color) {
+  ensurePageSpace(doc, 40);
+  doc.moveDown(0.6);
+  const left = doc.page.margins.left;
+  const y = doc.y;
+
+  // Accent dot
+  doc.save();
+  doc.circle(left + 5, y + 7, 5).fill(color || PDF_THEME.primary);
+  doc.restore();
+
+  doc.font('Helvetica-Bold').fontSize(13).fillColor(PDF_THEME.title)
+    .text(title, left + 16, y);
+  doc.moveDown(0.4);
+}
+
+/**
+ * Draw a styled text panel (question or answer) with background + border.
+ * Properly calculates height to prevent blank pages.
+ */
+function drawStyledPanel(doc, title, text, bgColor, borderColor, accentColor) {
+  writeSectionTitle(doc, title, accentColor);
 
   const left = doc.page.margins.left;
-  const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const width = getUsableWidth(doc);
+  const innerWidth = width - 28;
   const textValue = String(text || '-');
-  const textHeight = doc.heightOfString(textValue, {
-    width: width - 24,
-    align: 'left',
-    lineGap: 2
-  });
-  const panelHeight = Math.max(52, textHeight + 22);
-  const availableHeight = doc.page.height - doc.page.margins.bottom - doc.y;
 
-  if (panelHeight <= availableHeight - 4) {
+  // Measure the text height accurately
+  const textHeight = doc.heightOfString(textValue, {
+    width: innerWidth,
+    align: 'left',
+    lineGap: 3
+  });
+  const paddingY = 14;
+  const panelHeight = textHeight + paddingY * 2;
+  const available = getRemainingSpace(doc);
+
+  // If panel fits in remaining space, draw inline; otherwise just flow text across pages
+  if (panelHeight <= available - 4) {
     const top = doc.y;
     doc.save();
-    doc.roundedRect(left, top, width, panelHeight, 8).fillAndStroke(PDF_THEME.panelBg, PDF_THEME.border);
+    doc.roundedRect(left, top, width, panelHeight, 6)
+      .lineWidth(0.75).fillAndStroke(bgColor, borderColor);
     doc.restore();
 
-    doc.font('Helvetica').fontSize(11.5).fillColor(PDF_THEME.text).text(textValue, left + 12, top + 10, {
-      width: width - 24,
-      align: 'left',
+    // Left accent bar
+    doc.save();
+    doc.rect(left, top, 4, panelHeight).fill(accentColor);
+    doc.restore();
+
+    doc.font('Helvetica').fontSize(11).fillColor(PDF_THEME.text)
+      .text(textValue, left + 16, top + paddingY, {
+        width: innerWidth,
+        align: 'left',
+        lineGap: 3
+      });
+    doc.y = top + panelHeight + 6;
+  } else {
+    // Text is too long for a single panel box — draw background for visible portion
+    // then let text flow naturally across pages
+    doc.font('Helvetica').fontSize(11).fillColor(PDF_THEME.text)
+      .text(textValue, left + 16, doc.y, {
+        width: innerWidth,
+        align: 'left',
+        lineGap: 3
+      });
+    doc.moveDown(0.5);
+  }
+}
+
+/**
+ * Draw a thin divider line.
+ */
+function drawDivider(doc) {
+  ensurePageSpace(doc, 16);
+  const left = doc.page.margins.left;
+  const width = getUsableWidth(doc);
+  const y = doc.y + 4;
+
+  doc.save();
+  doc.moveTo(left, y).lineTo(left + width, y)
+    .lineWidth(0.5).strokeColor(PDF_THEME.border).stroke();
+  doc.restore();
+
+  doc.y = y + 8;
+}
+
+/**
+ * Draw a source card with number badge and accent bar.
+ */
+function drawSourceCard(doc, source, index) {
+  const left = doc.page.margins.left;
+  const width = getUsableWidth(doc);
+  const innerWidth = width - 32;
+
+  const fileLabel = source.originalName || source.fileName || 'Unknown document';
+  const page = source.page ?? '-';
+  const para = source.paragraph ?? '-';
+  const lineStart = source.startLine ?? '-';
+  const lineEnd = source.endLine ?? lineStart;
+  const lineLabel = lineStart === '-' ? '-' : `line ${lineStart}${lineEnd !== lineStart ? `-${lineEnd}` : ''}`;
+  const sourceExcerpt = compactText(source.text || '-', MAX_SOURCE_EXCERPT_CHARS);
+
+  const heading = `${fileLabel}`;
+  const meta = `Page ${page}  •  Paragraph ${para}  •  ${lineLabel}`;
+
+  // Measure heights
+  const headingHeight = doc.heightOfString(heading, { width: innerWidth });
+  const metaHeight = 14;
+  const excerptHeight = doc.heightOfString(sourceExcerpt, { width: innerWidth, lineGap: 2 });
+  const cardHeight = Math.max(60, headingHeight + metaHeight + excerptHeight + 36);
+
+  ensurePageSpace(doc, cardHeight + 10);
+
+  const top = doc.y;
+
+  // Card background
+  doc.save();
+  doc.roundedRect(left, top, width, cardHeight, 6)
+    .lineWidth(0.75).fillAndStroke(PDF_THEME.sourceBg, PDF_THEME.sourceBorder);
+  doc.restore();
+
+  // Accent bar
+  const accentColors = ['#6366f1', '#8b5cf6', '#059669'];
+  doc.save();
+  doc.rect(left, top, 4, cardHeight).fill(accentColors[index % accentColors.length]);
+  doc.restore();
+
+  // Number badge
+  const badgeX = left + 14;
+  const badgeY = top + 12;
+  doc.save();
+  doc.circle(badgeX + 10, badgeY + 10, 10).fill(accentColors[index % accentColors.length]);
+  doc.restore();
+  doc.font('Helvetica-Bold').fontSize(10).fillColor('#ffffff')
+    .text(String(index + 1), badgeX + 4, badgeY + 4, { width: 12, align: 'center' });
+
+  // File name
+  const textX = left + 40;
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(PDF_THEME.title)
+    .text(heading, textX, top + 12, { width: width - 56 });
+
+  // Meta info
+  doc.font('Helvetica').fontSize(8.5).fillColor(PDF_THEME.muted)
+    .text(meta, textX, top + 12 + headingHeight + 2, { width: width - 56 });
+
+  // Excerpt
+  doc.font('Helvetica').fontSize(9.5).fillColor(PDF_THEME.text)
+    .text(sourceExcerpt, textX, top + 12 + headingHeight + metaHeight + 8, {
+      width: width - 56,
       lineGap: 2
     });
-    doc.y = top + panelHeight + 2;
-    return;
-  }
 
-  doc.font('Helvetica').fontSize(11.5).fillColor(PDF_THEME.text).text(textValue, {
-    width,
-    align: 'left',
-    lineGap: 2
-  });
+  doc.y = top + cardHeight + 8;
 }
 
+/**
+ * Draw a footer on every page with line and text.
+ */
 function drawFooter(doc) {
-  const footerY = doc.page.height - doc.page.margins.bottom - 12;
-  doc.font('Helvetica').fontSize(9).fillColor(PDF_THEME.muted).text(
-    'AI-PDF Retrieval Export',
-    doc.page.margins.left,
-    footerY,
-    {
-      width: doc.page.width - doc.page.margins.left - doc.page.margins.right,
-      align: 'left',
-      lineBreak: false
-    }
-  );
+  const footerY = doc.page.height - doc.page.margins.bottom + 8;
+  const left = doc.page.margins.left;
+  const width = getUsableWidth(doc);
+
+  // Divider line above footer
+  doc.save();
+  doc.moveTo(left, footerY).lineTo(left + width, footerY)
+    .lineWidth(0.5).strokeColor(PDF_THEME.footerLine).stroke();
+  doc.restore();
+
+  doc.font('Helvetica').fontSize(8).fillColor(PDF_THEME.footerText)
+    .text('AI-PDF Retrieval System  •  Intelligent Document Analysis',
+      left, footerY + 6,
+      { width, align: 'center', lineBreak: false });
 }
+
+/* ─── Route Handlers ────────────────────────────────────────────────── */
 
 exports.queryDocuments = async (req, res) => {
   try {
@@ -268,7 +468,18 @@ exports.exportQueryResultPdf = async (req, res) => {
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
 
-    doc = new PDFDocument({ size: 'A4', margin: 50 });
+    doc = new PDFDocument({
+      size: 'A4',
+      margin: PAGE_MARGIN,
+      bufferPages: true,       // Buffer all pages so we can remove blanks
+      autoFirstPage: true,
+      info: {
+        Title: `Query Result: ${compactText(query, 60)}`,
+        Author: 'AI-PDF Retrieval System',
+        Subject: 'Query Result Export',
+        Creator: 'AI-PDF Retrieval'
+      }
+    });
 
     // Prevent server crash if client closes early during streaming.
     doc.on('error', (streamError) => {
@@ -288,59 +499,60 @@ exports.exportQueryResultPdf = async (req, res) => {
 
     doc.pipe(res);
 
-    doc.on('pageAdded', () => drawFooter(doc));
+    // ── Header Banner ──
+    drawHeaderBanner(doc, query, inputMethod);
 
-    doc.font('Helvetica-Bold').fontSize(22).fillColor(PDF_THEME.title).text('Query Result Report');
-    doc.moveDown(0.2);
-    doc.font('Helvetica').fontSize(10).fillColor(PDF_THEME.muted).text('Generated from AI-PDF Retrieval System');
-    doc.moveDown(0.4);
-
+    // ── Info Card ──
+    const citationsText = `${exportSources.length} citation${exportSources.length !== 1 ? 's' : ''}`
+      + (Array.isArray(sources) && sources.length > exportSources.length
+        ? ` (top ${exportSources.length} of ${sources.length})`
+        : '');
     drawInfoCard(doc, [
-      `Generated: ${new Date().toLocaleString()}`,
-      `Input Method: ${inputMethod}`,
-      `Citations Included: ${exportSources.length}${Array.isArray(sources) && sources.length > exportSources.length ? ` (showing top ${exportSources.length} of ${sources.length})` : ''}`
+      `📋  Input Method: ${inputMethod.charAt(0).toUpperCase() + inputMethod.slice(1)}`,
+      `📎  Citations: ${citationsText}`
     ]);
 
-    drawTextPanel(doc, 'Question', compactText(query, 260));
-    drawTextPanel(doc, 'Answer', compactAnswer);
+    // ── Question Panel ──
+    drawStyledPanel(
+      doc,
+      'Question',
+      compactText(query, 400),
+      PDF_THEME.questionBg,
+      PDF_THEME.questionBorder,
+      PDF_THEME.primary
+    );
 
+    // ── Answer Panel ──
+    drawStyledPanel(
+      doc,
+      'Answer',
+      compactAnswer,
+      PDF_THEME.answerBg,
+      PDF_THEME.answerBorder,
+      PDF_THEME.success
+    );
+
+    // ── Sources ──
     if (exportSources.length > 0) {
-      writeSectionTitle(doc, 'Sources');
+      drawDivider(doc);
+      writeSectionTitle(doc, `Referenced Sources (${exportSources.length})`, PDF_THEME.secondary);
 
       exportSources.forEach((source, index) => {
-        ensurePageSpace(doc, 115);
-        const fileLabel = source.originalName || source.fileName || 'Unknown document';
-        const page = source.page ?? '-';
-        const para = source.paragraph ?? '-';
-        const lineStart = source.startLine ?? '-';
-        const lineEnd = source.endLine ?? lineStart;
-        const lineLabel = lineStart === '-' ? '-' : `line ${lineStart}${lineEnd !== lineStart ? `-${lineEnd}` : ''}`;
-        const sourceExcerpt = compactText(source.text || '-', MAX_SOURCE_EXCERPT_CHARS);
-        const left = doc.page.margins.left;
-        const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-
-        const heading = `${index + 1}. ${fileLabel} (p.${page}, para ${para}, ${lineLabel})`;
-        const sourceHeight = doc.heightOfString(sourceExcerpt, { width: width - 24, lineGap: 1.5 });
-        const cardHeight = Math.max(56, sourceHeight + 34);
-        const top = doc.y;
-
-        doc.save();
-        doc.roundedRect(left, top, width, cardHeight, 8).fillAndStroke('#ffffff', PDF_THEME.border);
-        doc.restore();
-
-        doc.font('Helvetica-Bold').fontSize(10.5).fillColor(PDF_THEME.title).text(heading, left + 12, top + 10, {
-          width: width - 24
-        });
-        doc.font('Helvetica').fontSize(10).fillColor(PDF_THEME.text).text(sourceExcerpt, left + 12, top + 26, {
-          width: width - 24,
-          lineGap: 1.5
-        });
-
-        doc.y = top + cardHeight + 8;
+        drawSourceCard(doc, source, index);
       });
     }
 
-    drawFooter(doc);
+    // ── Draw footer on ALL pages ──
+    const pageCount = doc.bufferedPageRange().count;
+    for (let i = 0; i < pageCount; i++) {
+      doc.switchToPage(i);
+      drawFooter(doc);
+    }
+
+    // ── Remove any trailing blank pages ──
+    // PDFKit bufferedPages lets us detect pages with no real content.
+    // Since we use bufferPages, we can just finalize now.
+    doc.flushPages();
     doc.end();
   } catch (error) {
     if (doc) {

@@ -54,7 +54,9 @@ const DocumentList = ({ documents, selectedFileNames = [], onSelectionChange, on
 
     setDeletingFolders((prev) => new Set(prev).add(folderPath));
     try {
-      await deleteFolder(folderPath);
+      // "Root" is a display label for files with empty folderPath in the DB
+      const actualPath = folderPath === 'Root' ? '' : folderPath;
+      await deleteFolder(actualPath);
       onDelete();
     } catch (error) {
       alert(`Error deleting folder: ${error.message}`);

@@ -53,7 +53,9 @@ export const deleteDocument = async (fileName) => {
 
 // Delete entire folder (all docs under that folderPath)
 export const deleteFolder = async (folderPath) => {
-  const response = await axios.delete(`${API_URL}/pdf/folders/${encodeURIComponent(folderPath)}`);
+  // Use '__root__' as a marker for files stored with empty folderPath
+  const safePath = folderPath === '' ? '__root__' : folderPath;
+  const response = await axios.delete(`${API_URL}/pdf/folders/${encodeURIComponent(safePath)}`);
   return response.data;
 };
 

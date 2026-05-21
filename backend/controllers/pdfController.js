@@ -136,7 +136,9 @@ exports.deleteDocument = async (req, res) => {
 
 exports.deleteFolder = async (req, res) => {
   try {
-    const folderPath = decodeURIComponent(req.params.folderPath || '');
+    const rawPath = decodeURIComponent(req.params.folderPath || '');
+    // '__root__' is a frontend marker for files with empty folderPath
+    const folderPath = rawPath === '__root__' ? '' : rawPath;
     const deletedCount = await pdfService.deleteFolder(folderPath);
 
     if (deletedCount === 0) {
